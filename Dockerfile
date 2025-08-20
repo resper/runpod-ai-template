@@ -14,18 +14,28 @@ RUN apt-get update && apt-get install -y \
     git \
     python3 \
     python3-pip \
+    python3-venv \
     supervisor \
     nginx \
     htop \
     tmux \
     nano \
     openssh-server \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Python Pakete
-RUN pip3 install --no-cache-dir \
-    jupyterlab \
-    open-webui
+# Python Pakete aktualisieren
+RUN pip3 install --upgrade pip setuptools wheel
+
+# Jupyter Lab installieren
+RUN pip3 install --no-cache-dir jupyterlab
+
+# Open WebUI von GitHub installieren
+RUN git clone https://github.com/open-webui/open-webui.git /opt/open-webui && \
+    cd /opt/open-webui && \
+    pip3 install -r requirements.txt && \
+    cd backend && \
+    pip3 install -e .
 
 # Ollama Installation
 RUN curl -fsSL https://ollama.com/install.sh | sh
@@ -50,10 +60,10 @@ if [ ! -z "$PUBLIC_KEY" ]; then
 fi
 
 # Jupyter Setup (optional)
-if [ "$ENABLE_JUPYTER" = "true" ] && [ ! -z "$JUPYTER_PASSWORD" ]; then
+if [ "$ENABLE_JUPYTER" = "true" ]; then
     echo "📊 Starting Jupyter Lab..."
     jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
-        --NotebookApp.token='' --NotebookApp.password="$JUPYTER_PASSWORD" \
+        --NotebookApp.token='' --NotebookApp.password="${JUPYTER_PASSWORD:-}" \
         --NotebookApp.allow_origin='*' \
         --NotebookApp.allow_remote_access=True &
 fi
@@ -103,12 +113,16 @@ fi
 # Open WebUI starten
 echo "🌐 Starting Open WebUI..."
 export OLLAMA_BASE_URL="http://localhost:11434"
+export OLLAMA_API_BASE_URL="http://localhost:11434/api"
 export WEBUI_AUTH="${WEBUI_AUTH:-false}"
 export WEBUI_NAME="${WEBUI_NAME:-RunPod AI}"
 export ENABLE_SIGNUP="${ENABLE_SIGNUP:-true}"
+export DATA_DIR="/workspace/data"
+export FRONTEND_BUILD_DIR="/opt/open-webui/build"
 
-# Open WebUI mit allen Umgebungsvariablen starten
-open-webui serve --host 0.0.0.0 --port 3000 &
+# Open WebUI Backend starten
+cd /opt/open-webui/backend
+python3 -m uvicorn main:app --host 0.0.0.0 --port 3000 --forwarded-allow-ips "*" &
 
 echo "✨ Setup complete!"
 echo ""
@@ -129,6 +143,27 @@ EOF
 
 # Start-Skript ausführbar machen
 RUN chmod +x /workspace/start.sh
+
+# Alternative: Einfaches Start-Skript für Tests
+RUN cat > /workspace/simple-start.sh << 'EOF'
+#!/bin/bash
+echo "🚀 Simple Start - Ollama only..."
+
+# Ollama starten
+ollama serve &
+sleep 5
+
+# Ein kleines Modell laden
+ollama pull llama3.2:1b
+
+echo "✅ Ollama ready on port 11434"
+echo "📝 You can now run: ollama run llama3.2:1b"
+
+# Am Leben halten
+tail -f /dev/null
+EOF
+
+RUN chmod +x /workspace/simple-start.sh
 
 # Supervisor Konfiguration erstellen
 RUN mkdir -p /etc/supervisor/conf.d && \
