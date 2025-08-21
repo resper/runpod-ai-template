@@ -19,7 +19,8 @@ RUN git clone --depth=1 https://github.com/open-webui/open-webui.git /webui \
     && npm run build
 
 # Ports
-EXPOSE 11434 8080
+ENV OLLAMA_HOST=0.0.0.0:11434
+EXPOSE 8080 11434
 
 # Supervisor Konfiguration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
