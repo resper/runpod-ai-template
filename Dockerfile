@@ -1,23 +1,27 @@
 FROM nvidia/cuda:12.2.0-base-ubuntu22.04
 
-# --- System und Tools ---
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && \
-    apt-get install -y curl git ca-certificates sudo python3-pip \
-    && rm -rf /var/lib/apt/lists/*
 
-# --- Ollama installieren ---
+# System-Tools & Node.js 20 (LTS)
+RUN apt-get update && \
+    apt-get install -y curl git ca-certificates sudo python3-pip supervisor && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Ollama installieren
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
-# --- Open WebUI installieren ---
+# Open WebUI klonen & installieren
 RUN git clone --depth=1 https://github.com/open-webui/open-webui.git /webui \
-    && cd /webui && pip3 install --upgrade pip && pip3 install -r requirements.txt
+    && cd /webui \
+    && npm ci \
+    && npm run build
 
-# --- Ports und Entrypoint ---
+# Ports
 EXPOSE 11434 8080
 
-# Starte Ollama + WebUI in einem Prozess (mit Supervisor)
-RUN apt-get update && apt-get install -y supervisor
+# Supervisor Konfiguration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 CMD ["/usr/bin/supervisord"]
