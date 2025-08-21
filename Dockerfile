@@ -15,7 +15,7 @@ RUN curl -fsSL https://ollama.com/install.sh | bash
 # Open WebUI klonen & installieren
 RUN git clone --depth=1 https://github.com/open-webui/open-webui.git /webui \
     && cd /webui \
-    && npm ci \
+    && npm ci --legacy-peer-deps \
     && npm run build
 
 # Ports
@@ -23,5 +23,6 @@ EXPOSE 11434 8080
 
 # Supervisor Konfiguration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 
 CMD ["/usr/bin/supervisord"]
